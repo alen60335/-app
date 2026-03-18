@@ -624,80 +624,76 @@ async function analyze() {
   document.getElementById('errMsg').style.display = 'none';
 
   try {
-    const prompt = `你是專業營養師，請根據以下資訊估算食物的熱量與營養素。
-
-${images.length > 0 ? `圖片中有 ${images.length} 張食物照片，請辨識所有食物。` : ''}
-${text ? `食物描述：${text}` : ''}
-
-重要規則：
-1. 就算資訊不完整，也必須根據同類食物的標準數值合理估算，絕對不可以把任何數值設為 0（除非該食物真的完全不含該成分，例如純水）
-2. 三明治、便當、麵包等加工食品，請根據常見食材估算脂肪與碳水
-3. 若有多樣食物請加總所有數值
-4. note 欄位說明估算依據或注意事項
-
-只回傳純 JSON，不含 markdown、不含說明文字：
-{"foodName":"食物名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"估算說明"}
-單位：calories=kcal，protein/fat/carbs=克`;
-
-    const parts = [];
-    images.forEach(img => {
-      parts.push({ inline_data: { mime_type: 'image/jpeg', data: img.base64 } });
-    });
-    parts.push({ text: prompt });
-
-    // 依序嘗試可用模型
-    // 先查詢可用模型，再呼叫
-    const listRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-    );
+    // 先取得可用模型清單
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     const listData = await listRes.json();
     if (listData.error) throw new Error('API Key 錯誤：' + listData.error.message);
-    
-    // 篩選支援 generateContent 的模型，優先選 flash 系列
     const allModels = (listData.models || [])
       .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
       .map(m => m.name.replace('models/', ''));
-    
-    // 優先順序：flash 系列優先
     const preferred = ['gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-flash-latest','gemini-1.5-flash'];
     const models = [
       ...preferred.filter(p => allModels.includes(p)),
       ...allModels.filter(m => !preferred.includes(m) && m.includes('flash')),
       ...allModels.filter(m => !preferred.includes(m) && !m.includes('flash')),
     ];
-    
     if (models.length === 0) throw new Error('你的帳號沒有可用的 Gemini 模型');
-    console.log('可用模型：', models);
-    let data = null;
-    let lastError = '';
-    let usedModel = '';
-    for (const model of models) {
-      let res;
-      try {
-        res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts }] })
-          }
-        );
-      } catch(fetchErr) {
-        lastError = `網路錯誤(${model}): ${fetchErr.message}`;
-        continue;
+
+    const singlePrompt = `你是專業營養師，請根據以下資訊估算食物的熱量與營養素。
+重要規則：
+1. 就算資訊不完整，也必須根據同類食物的標準數值合理估算，絕對不可以把任何數值設為 0（除非該食物真的完全不含該成分，例如純水）
+2. 三明治、便當、麵包等加工食品，請根據常見食材估算脂肪與碳水
+3. note 欄位說明估算依據
+只回傳純 JSON，不含 markdown、不含說明文字：
+{"foodName":"食物名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"估算說明"}
+單位：calories=kcal，protein/fat/carbs=克`;
+
+    // Helper: call Gemini with given parts
+    async function callGemini(parts) {
+      let data = null, lastError = '';
+      for (const model of models) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contents:[{ parts }] }) }
+          );
+          data = await res.json();
+          if (!data.error) break;
+          lastError = `${model}: ${data.error.message}`;
+        } catch(e) { lastError = e.message; }
       }
-      data = await res.json();
-      if (!data.error) { usedModel = model; break; }
-      lastError = `${model}: ${data.error.message}`;
+      if (!data || data.error) throw new Error(lastError);
+      return data.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim();
     }
-    if (!data || data.error) throw new Error(lastError);
-    console.log('使用模型：', usedModel);
-    const raw = data.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim();
-    const parsed = JSON.parse(raw);
+
     const key = todayKey();
-    const meals = loadDay(key);
-    meals.push({ ...parsed, mealType:currentMeal, id:Date.now() });
-    saveDay(key, meals);
+    const dayMeals = loadDay(key);
+
+    if (images.length > 1) {
+      // 每張圖片各自分析 → 各自一筆紀錄
+      btn.innerHTML = `<span class="spinner">⟳</span> 分析中 (0/${images.length})...`;
+      for (let i = 0; i < images.length; i++) {
+        btn.innerHTML = `<span class="spinner">⟳</span> 分析中 (${i+1}/${images.length})...`;
+        const parts = [
+          { inline_data: { mime_type: 'image/jpeg', data: images[i].base64 } },
+          { text: singlePrompt + (text ? `
+食物描述補充：${text}` : '') }
+        ];
+        const raw = await callGemini(parts);
+        const parsed = JSON.parse(raw);
+        dayMeals.push({ ...parsed, mealType: currentMeal, id: Date.now() + i });
+      }
+    } else {
+      // 單張圖片或純文字 → 一筆紀錄
+      const parts = [];
+      if (images.length === 1) parts.push({ inline_data: { mime_type: 'image/jpeg', data: images[0].base64 } });
+      parts.push({ text: singlePrompt + (text ? ('\n食物描述：' + text) : '\n請根據圖片辨識食物。') });
+      const raw = await callGemini(parts);
+      const parsed = JSON.parse(raw);
+      dayMeals.push({ ...parsed, mealType: currentMeal, id: Date.now() });
+    }
+
+    saveDay(key, dayMeals);
     document.getElementById('foodInput').value = '';
     clearImages();
     renderToday();
