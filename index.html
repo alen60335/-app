@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>減脂飲食追蹤</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #3b82f6; --blue-light: #eff6ff; --blue-border: #bfdbfe;
+    --green: #10b981; --yellow: #f59e0b; --red: #ef4444; --orange: #f97316;
+    --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0;
+    --gray-300: #cbd5e1; --gray-400: #94a3b8; --gray-500: #64748b;
+    --gray-700: #334155; --gray-800: #1e293b; --gray-900: #0f172a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Manrope','Noto Sans TC',sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
+
+  /* ── NAV TABS ── */
+  .nav { background: #fff; border-bottom: 1px solid var(--gray-200); display: flex; position: sticky; top: 0; z-index: 100; }
+  .nav-tab { flex: 1; padding: 14px 4px 12px; text-align: center; font-size: 11px; font-weight: 700; color: var(--gray-400); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .nav-tab .nav-icon { font-size: 18px; display: block; margin-bottom: 2px; }
+
+  /* ── PAGES ── */
+  .page { display: none; max-width: 480px; margin: 0 auto; padding: 16px 16px 80px; }
+  .page.active { display: block; }
+
+  /* ── CARD ── */
+  .card { background: #fff; border-radius: 16px; border: 1px solid var(--gray-200); padding: 16px; margin-bottom: 12px; }
+  .card-label { font-size: 11px; font-weight: 700; color: var(--gray-500); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; }
+
+  /* ── TODAY HEADER ── */
+  .today-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .today-date { font-size: 15px; font-weight: 800; color: var(--gray-900); }
+  .today-date span { font-size: 11px; font-weight: 500; color: var(--gray-400); margin-left: 6px; }
+  .cal-display { text-align: right; }
+  .cal-big { font-size: 26px; font-weight: 900; line-height: 1; }
+  .cal-big.over { color: var(--red); }
+  .cal-sub { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+  .cal-sub.over { color: var(--red); }
+
+  /* ── PROGRESS BAR ── */
+  .prog-meta { display: flex; justify-content: space-between; margin-bottom: 7px; }
+  .prog-meta span { font-size: 12px; color: var(--gray-400); }
+  .prog-track { height: 10px; background: var(--gray-100); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .prog-fill { height: 100%; border-radius: 10px; background: var(--blue); transition: width 0.5s ease, background 0.3s; }
+
+  /* ── RINGS ── */
+  .macros-row { display: flex; justify-content: space-around; }
+  .macro-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .macro-label { font-size: 11px; color: var(--gray-500); font-weight: 600; }
+
+  /* ── MEAL TABS ── */
+  .meal-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .meal-tab { flex: 1; padding: 8px 2px; border-radius: 10px; border: 1.5px solid transparent; background: var(--gray-50); color: var(--gray-400); cursor: pointer; font-size: 11px; font-weight: 700; font-family: inherit; text-align: center; line-height: 1.4; transition: all 0.15s; }
+  .meal-tab.active { background: var(--blue-light); color: var(--blue); border-color: var(--blue-border); }
+
+  /* ── IMAGE PREVIEW ── */
+  .img-preview { position: relative; margin-bottom: 10px; }
+  .img-preview img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 10px; border: 1px solid var(--gray-200); display: block; }
+  .img-remove { position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,0.95); border: 1px solid var(--gray-200); color: var(--gray-500); border-radius: 50%; width: 26px; height: 26px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+
+  /* ── TEXTAREA ── */
+  textarea { width: 100%; min-height: 80px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; color: var(--gray-800); font-size: 14px; padding: 10px 12px; resize: none; outline: none; line-height: 1.6; font-family: 'Manrope','Noto Sans TC',sans-serif; transition: border-color 0.15s; }
+  textarea:focus { border-color: var(--blue); }
+  textarea::placeholder { color: var(--gray-300); }
+
+  /* ── BUTTONS ── */
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  .btn-photo { padding: 11px 13px; border-radius: 10px; border: 1px solid var(--gray-200); background: var(--gray-50); color: var(--gray-500); cursor: pointer; font-size: 17px; display: flex; align-items: center; justify-content: center; }
+  .btn-analyze { flex: 1; padding: 11px; border-radius: 10px; border: none; background: var(--blue); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; transition: all 0.15s; }
+  .btn-analyze:disabled { background: var(--gray-200); color: var(--gray-400); cursor: not-allowed; }
+  .error-msg { color: var(--red); font-size: 12px; margin-top: 6px; }
+
+  /* ── MEAL RECORDS ── */
+  .meal-card { background: #fff; border-radius: 14px; border: 1px solid var(--gray-200); padding: 13px 14px; margin-bottom: 8px; display: flex; gap: 10px; align-items: flex-start; animation: slideIn 0.25s ease; }
+  @keyframes slideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  .meal-icon { font-size: 20px; line-height: 1; padding-top: 2px; }
+  .meal-body { flex: 1; min-width: 0; }
+  .meal-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
+  .meal-name { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+  .meal-badge { font-size: 10px; color: var(--gray-400); margin-left: 6px; }
+  .meal-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .meal-cal { font-size: 15px; font-weight: 800; color: var(--blue); }
+  .meal-cal-unit { font-size: 10px; color: var(--gray-400); }
+  .btn-del { background: none; border: none; color: var(--gray-300); cursor: pointer; font-size: 15px; padding: 0 0 0 4px; line-height: 1; }
+  .meal-note { font-size: 11px; color: var(--gray-400); margin-bottom: 5px; }
+  .meal-macros { display: flex; gap: 10px; flex-wrap: wrap; }
+  .mdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .mtext { font-size: 11px; color: var(--gray-500); display: flex; align-items: center; gap: 3px; }
+  .mtext b { color: var(--gray-700); }
+
+  /* ── EMPTY ── */
+  .empty { text-align: center; padding: 48px 0; }
+  .empty-icon { font-size: 40px; margin-bottom: 10px; }
+  .empty-t { font-size: 13px; font-weight: 600; color: var(--gray-400); }
+  .empty-s { font-size: 12px; color: var(--gray-300); margin-top: 4px; }
+
+  /* ── HISTORY PAGE ── */
+  .date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .date-nav-btn { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; padding: 8px 14px; cursor: pointer; font-size: 16px; color: var(--gray-500); }
+  .date-nav-title { font-size: 15px; font-weight: 800; color: var(--gray-900); text-align: center; }
+  .date-nav-sub { font-size: 11px; color: var(--gray-400); text-align: center; margin-top: 2px; }
+
+  .history-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .hs-item { background: var(--gray-50); border-radius: 12px; padding: 12px; text-align: center; }
+  .hs-val { font-size: 20px; font-weight: 900; color: var(--gray-900); }
+  .hs-label { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+
+  /* ── STATS PAGE ── */
+  .stats-week { display: flex; gap: 4px; align-items: flex-end; height: 80px; margin: 8px 0 4px; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; transition: height 0.4s ease; }
+  .bar-day { font-size: 9px; color: var(--gray-400); font-weight: 600; }
+  .bar-val { font-size: 8px; color: var(--gray-400); }
+
+  .streak-badge { display: inline-flex; align-items: center; gap: 6px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: #ea580c; }
+
+  /* ── SPINNER ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; animation: spin 0.8s linear infinite; }
+
+  .section-title { font-size: 13px; font-weight: 800; color: var(--gray-700); margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-tab active" onclick="showPage('today')"><span class="nav-icon">🍽️</span>今日</div>
+  <div class="nav-tab" onclick="showPage('history')"><span class="nav-icon">📅</span>紀錄</div>
+  <div class="nav-tab" onclick="showPage('stats')"><span class="nav-icon">📊</span>統計</div>
+</div>
+
+<!-- ═══════════ TODAY PAGE ═══════════ -->
+<div id="page-today" class="page active">
+
+  <div class="today-header">
+    <div>
+      <div class="today-date" id="todayDate"></div>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:2px;">目標體脂 18–20%</div>
+    </div>
+    <div class="cal-display">
+      <div class="cal-big" id="calBig">0 <span style="font-size:12px;font-weight:500;color:var(--gray-400)">kcal</span></div>
+      <div class="cal-sub" id="calSub">剩餘 1725 kcal</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="card">
+    <div class="prog-meta"><span id="progLabel">0 / 1725 kcal</span><span id="progPct">0%</span></div>
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="macros-row">
+      <div class="macro-item"><svg id="ringP" width="72" height="72"></svg><div class="macro-label">蛋白質</div></div>
+      <div class="macro-item"><svg id="ringF" width="72" height="72"></svg><div class="macro-label">脂肪</div></div>
+      <div class="macro-item"><svg id="ringC" width="72" height="72"></svg><div class="macro-label">碳水</div></div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="card-label">新增飲食</div>
+    <div class="meal-tabs">
+      <button class="meal-tab active" data-meal="breakfast" onclick="selectMeal(this)">🌅<br>早餐</button>
+      <button class="meal-tab" data-meal="lunch" onclick="selectMeal(this)">☀️<br>午餐</button>
+      <button class="meal-tab" data-meal="dinner" onclick="selectMeal(this)">🌙<br>晚餐</button>
+      <button class="meal-tab" data-meal="snack" onclick="selectMeal(this)">🍎<br>點心</button>
+    </div>
+    <div class="img-preview" id="imgPreview" style="display:none">
+      <img id="imgThumb" src="" alt="">
+      <button class="img-remove" onclick="removeImage()">✕</button>
+    </div>
+    <textarea id="foodInput" placeholder="輸入食物，例如：雞胸肉150g、白飯一碗、燙青菜..."></textarea>
+    <div class="error-msg" id="errMsg" style="display:none"></div>
+    <div class="btn-row">
+      <button class="btn-photo" onclick="document.getElementById('fileCamera').click()" title="拍照">📷</button>
+      <button class="btn-photo" onclick="document.getElementById('fileGallery').click()" title="相簿">🖼️</button>
+      <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">✦ AI 分析</button>
+    </div>
+    <input type="file" id="fileCamera"  accept="image/*" capture="environment" style="display:none" onchange="handleImage(event)">
+    <input type="file" id="fileGallery" accept="image/*" style="display:none" onchange="handleImage(event)">
+  </div>
+
+  <!-- Records -->
+  <div id="todayRecords">
+    <div class="empty"><div class="empty-icon">🥗</div><div class="empty-t">還沒有紀錄</div><div class="empty-s">輸入文字或拍照開始追蹤</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ HISTORY PAGE ═══════════ -->
+<div id="page-history" class="page">
+  <div class="date-nav">
+    <button class="date-nav-btn" onclick="historyPrev()">‹</button>
+    <div>
+      <div class="date-nav-title" id="histDateTitle"></div>
+      <div class="date-nav-sub" id="histDateSub"></div>
+    </div>
+    <button class="date-nav-btn" onclick="historyNext()">›</button>
+  </div>
+  <div id="histContent"></div>
+</div>
+
+<!-- ═══════════ STATS PAGE ═══════════ -->
+<div id="page-stats" class="page">
+  <div class="card">
+    <div class="card-label">連續紀錄</div>
+    <div id="streakBadge"></div>
+  </div>
+  <div class="card">
+    <div class="card-label">近 7 天熱量</div>
+    <div class="stats-week" id="weekBars"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:4px">
+      <span style="font-size:11px;color:var(--gray-400)">7天前</span>
+      <span style="font-size:11px;color:var(--gray-400)">今天</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">7天平均</div>
+    <div class="history-summary" id="avgGrid"></div>
+  </div>
+</div>
+
+<script>
+const PROFILE = { calories: 1725, protein: 125, fat: 55, carbs: 170 };
+const MEAL_LABELS = { breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'點心' };
+const MEAL_ICONS  = { breakfast:'🌅', lunch:'☀️', dinner:'🌙', snack:'🍎' };
+const DAYS = ['日','一','二','三','四','五','六'];
+
+let currentMeal = 'breakfast';
+let imageBase64 = null;
+let historyOffset = 0; // 0 = today, -1 = yesterday...
+
+// ── Storage helpers ──
+function todayKey() { return new Date().toISOString().slice(0,10); }
+function dateKey(offset) {
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0,10);
+}
+function loadDay(key) { try { return JSON.parse(localStorage.getItem('diet_' + key) || '[]'); } catch { return []; } }
+function saveDay(key, meals) { localStorage.setItem('diet_' + key, JSON.stringify(meals)); }
+
+// ── Page nav ──
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'history') renderHistory();
+  if (name === 'stats') renderStats();
+}
+
+// ── Rings ──
+function drawRing(id, value, max, color) {
+  const size=72, sw=7, r=(size-sw*2)/2, cx=size/2, cy=size/2;
+  const circ = 2*Math.PI*r, pct = Math.min(value/max,1), over = value>max;
+  document.getElementById(id).innerHTML = `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f1f5f9" stroke-width="${sw}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${over?'#ef4444':color}" stroke-width="${sw}"
+      stroke-dasharray="${circ*pct} ${circ}" stroke-linecap="round"
+      transform="rotate(-90 ${cx} ${cy})" style="transition:stroke-dasharray 0.5s ease"/>
+    <text x="${cx}" y="${cy-4}" text-anchor="middle" dominant-baseline="middle"
+      fill="${over?'#ef4444':'#1e293b'}" font-size="12" font-weight="800" font-family="Manrope,sans-serif">${value}</text>
+    <text x="${cx}" y="${cy+9}" text-anchor="middle" dominant-baseline="middle"
+      fill="#94a3b8" font-size="9" font-family="Manrope,sans-serif">/${max}g</text>`;
+}
+
+// ── Today UI ──
+function renderToday() {
+  const meals = loadDay(todayKey());
+  const T = meals.reduce((a,m) => ({ calories:a.calories+m.calories, protein:a.protein+m.protein, fat:a.fat+m.fat, carbs:a.carbs+m.carbs }), {calories:0,protein:0,fat:0,carbs:0});
+  const over = T.calories > PROFILE.calories;
+  const left = PROFILE.calories - T.calories;
+  const pct  = Math.min(T.calories / PROFILE.calories, 1);
+
+  // Date
+  const now = new Date();
+  document.getElementById('todayDate').innerHTML = `${now.getMonth()+1}月${now.getDate()}日 <span>週${DAYS[now.getDay()]}</span>`;
+
+  // Cal
+  const calBig = document.getElementById('calBig');
+  calBig.innerHTML = `${T.calories} <span style="font-size:12px;font-weight:500;color:var(--gray-400)">kcal</span>`;
+  calBig.className = 'cal-big' + (over?' over':'');
+  const calSub = document.getElementById('calSub');
+  calSub.textContent = over ? `超標 ${Math.abs(left)} kcal` : `剩餘 ${left} kcal`;
+  calSub.className = 'cal-sub' + (over?' over':'');
+
+  // Bar
+  document.getElementById('progLabel').textContent = `${T.calories} / ${PROFILE.calories} kcal`;
+  document.getElementById('progPct').textContent = `${Math.round(pct*100)}%`;
+  const fill = document.getElementById('progFill');
+  fill.style.width = `${pct*100}%`;
+  fill.style.background = over ? '#ef4444' : pct>0.85 ? '#f97316' : '#3b82f6';
+
+  // Rings
+  drawRing('ringP', Math.round(T.protein), PROFILE.protein, '#3b82f6');
+  drawRing('ringF', Math.round(T.fat),     PROFILE.fat,     '#f59e0b');
+  drawRing('ringC', Math.round(T.carbs),   PROFILE.carbs,   '#10b981');
+
+  // Records
+  const el = document.getElementById('todayRecords');
+  if (!meals.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🥗</div><div class="empty-t">還沒有紀錄</div><div class="empty-s">輸入文字或拍照開始追蹤</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="section-title">今日紀錄</div>` +
+    meals.map(m => mealCardHTML(m, true)).join('');
+}
+
+function mealCardHTML(m, showDel) {
+  return `<div class="meal-card">
+    <div class="meal-icon">${MEAL_ICONS[m.mealType]||'🍴'}</div>
+    <div class="meal-body">
+      <div class="meal-top">
+        <div><span class="meal-name">${m.foodName}</span><span class="meal-badge">${MEAL_LABELS[m.mealType]||''}</span></div>
+        <div class="meal-right">
+          <span class="meal-cal">${m.calories}</span><span class="meal-cal-unit">kcal</span>
+          ${showDel ? `<button class="btn-del" onclick="deleteMeal(${m.id})">✕</button>` : ''}
+        </div>
+      </div>
+      ${m.note ? `<div class="meal-note">${m.note}</div>` : ''}
+      <div class="meal-macros">
+        <div class="mtext"><div class="mdot" style="background:#3b82f6"></div>蛋白 <b>${m.protein}g</b></div>
+        <div class="mtext"><div class="mdot" style="background:#f59e0b"></div>脂肪 <b>${m.fat}g</b></div>
+        <div class="mtext"><div class="mdot" style="background:#10b981"></div>碳水 <b>${m.carbs}g</b></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function deleteMeal(id) {
+  const key = todayKey();
+  const meals = loadDay(key).filter(m => m.id !== id);
+  saveDay(key, meals);
+  renderToday();
+}
+
+// ── Meal type ──
+function selectMeal(el) {
+  document.querySelectorAll('.meal-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentMeal = el.dataset.meal;
+}
+
+// ── Image ──
+function handleImage(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    imageBase64 = ev.target.result.split(',')[1];
+    document.getElementById('imgThumb').src = ev.target.result;
+    document.getElementById('imgPreview').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+function removeImage() {
+  imageBase64 = null;
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('imgThumb').src = '';
+  document.getElementById('fileCamera').value = '';
+  document.getElementById('fileGallery').value = '';
+}
+
+// 支援從剪貼簿貼上圖片
+document.addEventListener('paste', function(e) {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      const file = items[i].getAsFile();
+      const reader = new FileReader();
+      reader.onload = ev => {
+        imageBase64 = ev.target.result.split(',')[1];
+        document.getElementById('imgThumb').src = ev.target.result;
+        document.getElementById('imgPreview').style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      break;
+    }
+  }
+});
+
+// ── Analyze ──
+async function analyze() {
+  const text = document.getElementById('foodInput').value.trim();
+  if (!text && !imageBase64) return;
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner">⟳</span> 分析中...';
+  document.getElementById('errMsg').style.display = 'none';
+  try {
+    const userContent = [];
+    if (imageBase64) userContent.push({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:imageBase64 } });
+    userContent.push({ type:'text', text:`分析以下飲食的熱量與營養素。${text?`食物：${text}`:'根據圖片辨識食物。'}
+回傳純JSON（不含markdown）：{"foodName":"名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"一句話說明"}
+單位：calories=kcal，其餘=克，多樣食物請加總。` });
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{role:'user',content:userContent}] })
+    });
+    const data = await res.json();
+    const raw = data.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(raw);
+    const key = todayKey();
+    const meals = loadDay(key);
+    meals.push({ ...parsed, mealType:currentMeal, id:Date.now() });
+    saveDay(key, meals);
+    document.getElementById('foodInput').value = '';
+    removeImage();
+    renderToday();
+  } catch(e) {
+    const err = document.getElementById('errMsg');
+    err.textContent = '分析失敗，請重試'; err.style.display = 'block';
+  }
+  btn.disabled = false; btn.innerHTML = '✦ AI 分析';
+}
+
+// ── History ──
+function historyPrev() { historyOffset--; renderHistory(); }
+function historyNext() { if (historyOffset < 0) { historyOffset++; renderHistory(); } }
+
+function renderHistory() {
+  const key = dateKey(historyOffset);
+  const d = new Date(); d.setDate(d.getDate() + historyOffset);
+  const label = historyOffset === 0 ? '今天' : historyOffset === -1 ? '昨天' : `${d.getMonth()+1}月${d.getDate()}日`;
+  document.getElementById('histDateTitle').textContent = label;
+  document.getElementById('histDateSub').textContent = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} 週${DAYS[d.getDay()]}`;
+
+  const meals = loadDay(key);
+  const T = meals.reduce((a,m) => ({ calories:a.calories+m.calories, protein:a.protein+m.protein, fat:a.fat+m.fat, carbs:a.carbs+m.carbs }), {calories:0,protein:0,fat:0,carbs:0});
+
+  let html = '';
+  if (meals.length) {
+    html += `<div class="card">
+      <div class="history-summary">
+        <div class="hs-item"><div class="hs-val" style="color:var(--blue)">${T.calories}</div><div class="hs-label">總熱量 kcal</div></div>
+        <div class="hs-item"><div class="hs-val" style="color:#3b82f6">${Math.round(T.protein)}g</div><div class="hs-label">蛋白質</div></div>
+        <div class="hs-item"><div class="hs-val" style="color:#f59e0b">${Math.round(T.fat)}g</div><div class="hs-label">脂肪</div></div>
+        <div class="hs-item"><div class="hs-val" style="color:#10b981">${Math.round(T.carbs)}g</div><div class="hs-label">碳水</div></div>
+      </div>
+    </div>`;
+    html += `<div class="section-title">飲食明細</div>`;
+    html += meals.map(m => mealCardHTML(m, false)).join('');
+  } else {
+    html = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">這天沒有紀錄</div></div>`;
+  }
+  document.getElementById('histContent').innerHTML = html;
+}
+
+// ── Stats ──
+function renderStats() {
+  // Streak
+  let streak = 0;
+  for (let i = 0; i >= -60; i--) {
+    const meals = loadDay(dateKey(i));
+    if (meals.length > 0) streak++;
+    else if (i < 0) break;
+  }
+  document.getElementById('streakBadge').innerHTML = `<div class="streak-badge">🔥 連續記錄 ${streak} 天</div>`;
+
+  // 7-day bars
+  const days = [];
+  for (let i = -6; i <= 0; i++) {
+    const meals = loadDay(dateKey(i));
+    const cal = meals.reduce((a,m) => a + m.calories, 0);
+    const d = new Date(); d.setDate(d.getDate() + i);
+    days.push({ cal, label: DAYS[d.getDay()], isToday: i===0 });
+  }
+  const maxCal = Math.max(...days.map(d=>d.cal), PROFILE.calories);
+  const barsHTML = days.map(d => {
+    const h = Math.max((d.cal / maxCal) * 68, d.cal>0?4:0);
+    const color = d.cal > PROFILE.calories ? '#ef4444' : d.isToday ? '#3b82f6' : '#bfdbfe';
+    return `<div class="bar-wrap">
+      ${d.cal > 0 ? `<div class="bar-val">${d.cal>999?Math.round(d.cal/100)/10+'k':d.cal}</div>` : ''}
+      <div class="bar" style="height:${h}px;background:${color}"></div>
+      <div class="bar-day" style="color:${d.isToday?'var(--blue)':'var(--gray-400)'}">${d.label}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('weekBars').innerHTML = barsHTML;
+
+  // 7-day avg
+  const validDays = days.filter(d=>d.cal>0);
+  if (validDays.length === 0) {
+    document.getElementById('avgGrid').innerHTML = `<div style="grid-column:span 2;text-align:center;color:var(--gray-400);font-size:13px;padding:12px">尚無足夠資料</div>`;
+    return;
+  }
+  let avgT = {calories:0,protein:0,fat:0,carbs:0};
+  for (let i=-6;i<=0;i++) {
+    const meals = loadDay(dateKey(i));
+    meals.forEach(m => { avgT.calories+=m.calories; avgT.protein+=m.protein; avgT.fat+=m.fat; avgT.carbs+=m.carbs; });
+  }
+  const n = validDays.length;
+  document.getElementById('avgGrid').innerHTML = `
+    <div class="hs-item"><div class="hs-val" style="color:var(--blue)">${Math.round(avgT.calories/n)}</div><div class="hs-label">平均熱量 kcal</div></div>
+    <div class="hs-item"><div class="hs-val" style="color:#3b82f6">${Math.round(avgT.protein/n)}g</div><div class="hs-label">平均蛋白質</div></div>
+    <div class="hs-item"><div class="hs-val" style="color:#f59e0b">${Math.round(avgT.fat/n)}g</div><div class="hs-label">平均脂肪</div></div>
+    <div class="hs-item"><div class="hs-val" style="color:#10b981">${Math.round(avgT.carbs/n)}g</div><div class="hs-label">平均碳水</div></div>`;
+}
+
+// ── Init ──
+drawRing('ringP',0,PROFILE.protein,'#3b82f6');
+drawRing('ringF',0,PROFILE.fat,'#f59e0b');
+drawRing('ringC',0,PROFILE.carbs,'#10b981');
+renderToday();
+</script>
+</body>
+</html>
