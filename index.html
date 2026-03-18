@@ -122,6 +122,18 @@
   .spinner { display: inline-block; animation: spin 0.8s linear infinite; }
 
   .section-title { font-size: 13px; font-weight: 800; color: var(--gray-700); margin-bottom: 10px; }
+  .cal-day { border-radius: 8px; padding: 4px 2px; text-align: center; cursor: pointer; transition: all 0.15s; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; }
+  .cal-day:active { transform: scale(0.95); }
+  .cal-day.empty { cursor: default; }
+  .cal-day.selected { outline: 2px solid var(--blue); background: var(--blue-light); }
+  .cal-day.today { background: var(--gray-100); }
+  .cal-day-num { font-size: 12px; font-weight: 700; color: var(--gray-800); line-height: 1; margin-top: 4px; }
+  .cal-day.today .cal-day-num { color: var(--blue); }
+  .cal-day.sunday .cal-day-num { color: var(--red); }
+  .cal-day.saturday .cal-day-num { color: var(--blue); }
+  .cal-day.other-month .cal-day-num { color: var(--gray-300); }
+  .cal-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .cal-cal { font-size: 9px; color: var(--gray-500); font-weight: 600; line-height: 1; }
   .remain-chip { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; padding: 8px 12px; text-align: center; flex: 1; min-width: 70px; }
   .remain-chip .rc-val { font-size: 16px; font-weight: 900; }
   .remain-chip .rc-label { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
@@ -208,14 +220,44 @@
 
 <!-- ═══════════ HISTORY PAGE ═══════════ -->
 <div id="page-history" class="page">
-  <div class="date-nav">
-    <button class="date-nav-btn" onclick="historyPrev()">‹</button>
-    <div>
-      <div class="date-nav-title" id="histDateTitle"></div>
-      <div class="date-nav-sub" id="histDateSub"></div>
+
+  <!-- Calendar Nav -->
+  <div class="card" style="padding:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <button class="date-nav-btn" onclick="calPrevMonth()">‹</button>
+      <div style="font-size:15px;font-weight:800;color:var(--gray-900);" id="calMonthTitle"></div>
+      <button class="date-nav-btn" onclick="calNextMonth()">›</button>
     </div>
-    <button class="date-nav-btn" onclick="historyNext()">›</button>
+    <!-- Weekday headers -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--red);padding:4px 0;">日</div>
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--gray-400);padding:4px 0;">一</div>
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--gray-400);padding:4px 0;">二</div>
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--gray-400);padding:4px 0;">三</div>
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--gray-400);padding:4px 0;">四</div>
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--gray-400);padding:4px 0;">五</div>
+      <div style="text-align:center;font-size:10px;font-weight:700;color:var(--blue);padding:4px 0;">六</div>
+    </div>
+    <!-- Calendar grid -->
+    <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+    <!-- Legend -->
+    <div style="display:flex;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-100);">
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--gray-400);">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>達標
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--gray-400);">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--orange);"></div>接近
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--gray-400);">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--red);"></div>超標
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--gray-400);">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--gray-200);"></div>無紀錄
+      </div>
+    </div>
   </div>
+
+  <!-- Selected day detail -->
   <div id="histContent"></div>
 </div>
 
@@ -343,6 +385,32 @@
     <div class="card-label">7天平均</div>
     <div class="history-summary" id="avgGrid"></div>
   </div>
+
+  <!-- Export Card -->
+  <div class="card">
+    <div class="card-label">匯出紀錄</div>
+    <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">選擇日期範圍，匯出飲食紀錄文字，貼給 AI 分析</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:5px;">開始日期</div>
+        <input type="date" id="exportStart" style="width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:13px;outline:none;font-family:inherit;color:var(--gray-800);">
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--gray-500);margin-bottom:5px;">結束日期</div>
+        <input type="date" id="exportEnd" style="width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:13px;outline:none;font-family:inherit;color:var(--gray-800);">
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <button onclick="setExportRange(7)"  class="meal-tab" style="flex:1;padding:7px 4px;">近7天</button>
+      <button onclick="setExportRange(14)" class="meal-tab" style="flex:1;padding:7px 4px;">近14天</button>
+      <button onclick="setExportRange(30)" class="meal-tab" style="flex:1;padding:7px 4px;">近30天</button>
+    </div>
+    <button onclick="exportRecords()" style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px;">
+      📋 產生並複製紀錄
+    </button>
+    <div id="exportDone" style="display:none;text-align:center;font-size:12px;color:var(--green);margin-bottom:8px;">✓ 已複製！貼到 Claude 或 Gemini 分析吧</div>
+    <div id="exportPreview" style="display:none;background:var(--gray-50);border-radius:10px;border:1px solid var(--gray-200);padding:12px;font-size:12px;color:var(--gray-600);line-height:1.7;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
+  </div>
 </div>
 
 <script>
@@ -376,7 +444,7 @@ function showPage(name) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
-  if (name === 'history') renderHistory();
+  if (name === 'history') calInit();
   if (name === 'stats') renderStats();
   if (name === 'advisor') renderAdvisor();
   if (name === 'settings') renderSettings();
@@ -556,9 +624,20 @@ async function analyze() {
   document.getElementById('errMsg').style.display = 'none';
 
   try {
-    const prompt = `分析以下飲食的熱量與營養素。${text ? `食物：${text}` : ''}${images.length > 1 ? `（共${images.length}張圖片，請辨識所有圖片中的食物並加總）` : images.length === 1 ? '根據圖片辨識食物。' : ''}
-回傳純JSON（不含markdown，不含任何說明文字）：{"foodName":"名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"一句話說明"}
-單位：calories=kcal，其餘=克，多樣食物請加總。`;
+    const prompt = `你是專業營養師，請根據以下資訊估算食物的熱量與營養素。
+
+${images.length > 0 ? `圖片中有 ${images.length} 張食物照片，請辨識所有食物。` : ''}
+${text ? `食物描述：${text}` : ''}
+
+重要規則：
+1. 就算資訊不完整，也必須根據同類食物的標準數值合理估算，絕對不可以把任何數值設為 0（除非該食物真的完全不含該成分，例如純水）
+2. 三明治、便當、麵包等加工食品，請根據常見食材估算脂肪與碳水
+3. 若有多樣食物請加總所有數值
+4. note 欄位說明估算依據或注意事項
+
+只回傳純 JSON，不含 markdown、不含說明文字：
+{"foodName":"食物名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"估算說明"}
+單位：calories=kcal，protein/fat/carbs=克`;
 
     const parts = [];
     images.forEach(img => {
@@ -630,25 +709,122 @@ async function analyze() {
   btn.disabled = false; btn.innerHTML = '✦ AI 分析';
 }
 
-// ── History ──
-function historyPrev() { historyOffset--; renderHistory(); }
-function historyNext() { if (historyOffset < 0) { historyOffset++; renderHistory(); } }
+// ── Calendar ──
+let calYear, calMonth, calSelectedKey;
 
-function renderHistory() {
-  const key = dateKey(historyOffset);
-  const d = new Date(); d.setDate(d.getDate() + historyOffset);
-  const label = historyOffset === 0 ? '今天' : historyOffset === -1 ? '昨天' : `${d.getMonth()+1}月${d.getDate()}日`;
-  document.getElementById('histDateTitle').textContent = label;
-  document.getElementById('histDateSub').textContent = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} 週${DAYS[d.getDay()]}`;
+function calInit() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  calSelectedKey = now.toISOString().slice(0,10);
+  renderCalendar();
+  renderHistContent(calSelectedKey);
+}
 
+function calPrevMonth() {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+function calNextMonth() {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const P = getProfile();
+  const now = new Date();
+  const todayKey = now.toISOString().slice(0,10);
+  document.getElementById('calMonthTitle').textContent = `${calYear} 年 ${calMonth+1} 月`;
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
+
+  let cells = [];
+
+  // Prev month padding
+  for (let i = firstDay - 1; i >= 0; i--) {
+    cells.push({ day: daysInPrevMonth - i, key: null, otherMonth: true });
+  }
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ day: d, key, otherMonth: false });
+  }
+  // Next month padding
+  const remaining = 7 - (cells.length % 7);
+  if (remaining < 7) {
+    for (let d = 1; d <= remaining; d++) {
+      cells.push({ day: d, key: null, otherMonth: true });
+    }
+  }
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = cells.map((cell, idx) => {
+    const weekday = idx % 7;
+    if (cell.otherMonth) {
+      return `<div class="cal-day empty other-month"><div class="cal-day-num">${cell.day}</div></div>`;
+    }
+    const meals = loadDay(cell.key);
+    const cal = meals.reduce((a,m) => a + m.calories, 0);
+    let dotColor = 'var(--gray-200)';
+    let calLabel = '';
+    if (meals.length > 0) {
+      const pct = cal / P.calories;
+      dotColor = pct > 1 ? 'var(--red)' : pct > 0.85 ? 'var(--orange)' : 'var(--green)';
+      calLabel = cal >= 1000 ? `${(cal/1000).toFixed(1)}k` : `${cal}`;
+    }
+    const isToday = cell.key === todayKey;
+    const isSelected = cell.key === calSelectedKey;
+    const isSun = weekday === 0;
+    const isSat = weekday === 6;
+    const cls = [
+      'cal-day',
+      isToday ? 'today' : '',
+      isSelected ? 'selected' : '',
+      isSun ? 'sunday' : '',
+      isSat ? 'saturday' : ''
+    ].filter(Boolean).join(' ');
+
+    return `<div class="${cls}" onclick="calSelectDay('${cell.key}')">
+      <div class="cal-day-num">${cell.day}</div>
+      <div class="cal-dot" style="background:${dotColor};"></div>
+      ${calLabel ? `<div class="cal-cal">${calLabel}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function calSelectDay(key) {
+  if (!key) return;
+  calSelectedKey = key;
+  renderCalendar();
+  renderHistContent(key);
+  // Scroll to detail
+  setTimeout(() => document.getElementById('histContent').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+function renderHistContent(key) {
   const meals = loadDay(key);
   const T = meals.reduce((a,m) => ({ calories:a.calories+m.calories, protein:a.protein+m.protein, fat:a.fat+m.fat, carbs:a.carbs+m.carbs }), {calories:0,protein:0,fat:0,carbs:0});
+  const d = new Date(key + 'T00:00:00');
+  const dateLabel = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} 週${DAYS[d.getDay()]}`;
 
   let html = '';
   if (meals.length) {
+    const P = getProfile();
+    const over = T.calories > P.calories;
+    const diff = Math.abs(T.calories - P.calories);
     html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:700;color:var(--gray-700);">${dateLabel}</div>
+        <div style="font-size:11px;padding:3px 10px;border-radius:20px;background:${over?'#fef2f2':'#f0fdf4'};color:${over?'var(--red)':'var(--green)'};">
+          ${over ? `超標 ${diff} kcal` : `剩餘 ${diff} kcal`}
+        </div>
+      </div>
       <div class="history-summary">
-        <div class="hs-item"><div class="hs-val" style="color:var(--blue)">${T.calories}</div><div class="hs-label">總熱量 kcal</div></div>
+        <div class="hs-item"><div class="hs-val" style="color:var(--blue)">${T.calories}</div><div class="hs-label">熱量 kcal</div></div>
         <div class="hs-item"><div class="hs-val" style="color:#3b82f6">${Math.round(T.protein)}g</div><div class="hs-label">蛋白質</div></div>
         <div class="hs-item"><div class="hs-val" style="color:#f59e0b">${Math.round(T.fat)}g</div><div class="hs-label">脂肪</div></div>
         <div class="hs-item"><div class="hs-val" style="color:#10b981">${Math.round(T.carbs)}g</div><div class="hs-label">碳水</div></div>
@@ -657,13 +833,19 @@ function renderHistory() {
     html += `<div class="section-title">飲食明細</div>`;
     html += meals.map(m => mealCardHTML(m, false)).join('');
   } else {
-    html = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">這天沒有紀錄</div></div>`;
+    html = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-t">${dateLabel}</div><div class="empty-s">這天沒有飲食紀錄</div></div>`;
   }
   document.getElementById('histContent').innerHTML = html;
 }
 
+// ── History (legacy - keep for compatibility) ──
+function historyPrev() {}
+function historyNext() {}
+function renderHistory() { calInit(); }
+
 // ── Stats ──
 function renderStats() {
+  initExportDates();
   // Streak
   let streak = 0;
   for (let i = 0; i >= -60; i--) {
@@ -925,6 +1107,106 @@ ${advImages.length ? `（附上${advImages.length}張食物照片，請辨識並
     err.textContent = '分析失敗：' + e.message; err.style.display = 'block';
   }
   btn.disabled = false; btn.innerHTML = '✦ AI 分析';
+}
+
+// ── Export ──
+function setExportRange(days) {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - (days - 1));
+  document.getElementById('exportStart').value = start.toISOString().slice(0,10);
+  document.getElementById('exportEnd').value = end.toISOString().slice(0,10);
+}
+
+function exportRecords() {
+  const start = document.getElementById('exportStart').value;
+  const end = document.getElementById('exportEnd').value;
+  if (!start || !end) { alert('請選擇日期範圍'); return; }
+  if (start > end) { alert('開始日期不能晚於結束日期'); return; }
+
+  const P = getProfile();
+  const lines = [];
+  lines.push(`=== 飲食紀錄匯出 (${start} ～ ${end}) ===`);
+  lines.push(`每日目標：熱量 ${P.calories} kcal｜蛋白質 ${P.protein}g｜脂肪 ${P.fat}g｜碳水 ${P.carbs}g`);
+  lines.push('');
+
+  // Iterate dates
+  const cur = new Date(start);
+  const endDate = new Date(end);
+  let totalDays = 0, recordedDays = 0;
+  let sumCal = 0, sumProt = 0, sumFat = 0, sumCarbs = 0;
+
+  while (cur <= endDate) {
+    const key = cur.toISOString().slice(0,10);
+    const meals = loadDay(key);
+    const d = cur;
+    const dateLabel = `${d.getMonth()+1}/${d.getDate()}（週${DAYS[d.getDay()]}）`;
+    totalDays++;
+
+    if (meals.length > 0) {
+      recordedDays++;
+      const T = meals.reduce((a,m) => ({
+        calories: a.calories+m.calories, protein: a.protein+m.protein,
+        fat: a.fat+m.fat, carbs: a.carbs+m.carbs
+      }), {calories:0,protein:0,fat:0,carbs:0});
+      sumCal += T.calories; sumProt += T.protein; sumFat += T.fat; sumCarbs += T.carbs;
+
+      const diff = T.calories - P.calories;
+      const diffStr = diff > 0 ? `超標 +${diff}` : `剩餘 ${Math.abs(diff)}`;
+      lines.push(`📅 ${dateLabel}　熱量 ${T.calories} kcal（${diffStr}）`);
+      meals.forEach(m => {
+        lines.push(`  ${MEAL_ICONS[m.mealType]} ${MEAL_LABELS[m.mealType]}｜${m.foodName}｜${m.calories}kcal 蛋白${m.protein}g 脂${m.fat}g 碳水${m.carbs}g`);
+      });
+      lines.push(`  ▸ 當日合計：蛋白質 ${Math.round(T.protein)}g｜脂肪 ${Math.round(T.fat)}g｜碳水 ${Math.round(T.carbs)}g`);
+    } else {
+      lines.push(`📅 ${dateLabel}　（無紀錄）`);
+    }
+    lines.push('');
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  // Summary
+  if (recordedDays > 0) {
+    lines.push('=== 期間總結 ===');
+    lines.push(`紀錄天數：${recordedDays} / ${totalDays} 天`);
+    lines.push(`平均熱量：${Math.round(sumCal/recordedDays)} kcal（目標 ${P.calories} kcal）`);
+    lines.push(`平均蛋白質：${Math.round(sumProt/recordedDays)}g（目標 ${P.protein}g）`);
+    lines.push(`平均脂肪：${Math.round(sumFat/recordedDays)}g（目標 ${P.fat}g）`);
+    lines.push(`平均碳水：${Math.round(sumCarbs/recordedDays)}g（目標 ${P.carbs}g）`);
+    lines.push('');
+    lines.push('請根據以上紀錄，分析我的飲食狀況，指出哪些地方做得好、哪些需要改進，並給我具體建議。');
+  } else {
+    lines.push('（此期間沒有任何飲食紀錄）');
+  }
+
+  const text = lines.join('\n');
+
+  // Copy to clipboard
+  const preview = document.getElementById('exportPreview');
+  preview.textContent = text;
+  preview.style.display = 'block';
+
+  try {
+    navigator.clipboard.writeText(text).then(() => {
+      document.getElementById('exportDone').style.display = 'block';
+      setTimeout(() => document.getElementById('exportDone').style.display = 'none', 3000);
+    });
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    document.getElementById('exportDone').style.display = 'block';
+    setTimeout(() => document.getElementById('exportDone').style.display = 'none', 3000);
+  }
+}
+
+function initExportDates() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 6);
+  document.getElementById('exportStart').value = start.toISOString().slice(0,10);
+  document.getElementById('exportEnd').value = end.toISOString().slice(0,10);
 }
 
 // ── Init ──
