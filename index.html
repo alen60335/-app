@@ -122,6 +122,9 @@
   .spinner { display: inline-block; animation: spin 0.8s linear infinite; }
 
   .section-title { font-size: 13px; font-weight: 800; color: var(--gray-700); margin-bottom: 10px; }
+  .remain-chip { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; padding: 8px 12px; text-align: center; flex: 1; min-width: 70px; }
+  .remain-chip .rc-val { font-size: 16px; font-weight: 900; }
+  .remain-chip .rc-label { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -131,6 +134,8 @@
   <div class="nav-tab active" onclick="showPage('today')"><span class="nav-icon">🍽️</span>今日</div>
   <div class="nav-tab" onclick="showPage('history')"><span class="nav-icon">📅</span>紀錄</div>
   <div class="nav-tab" onclick="showPage('stats')"><span class="nav-icon">📊</span>統計</div>
+  <div class="nav-tab" onclick="showPage('advisor')"><span class="nav-icon">🤖</span>顧問</div>
+  <div class="nav-tab" onclick="showPage('settings')"><span class="nav-icon">⚙️</span>設定</div>
 </div>
 
 <!-- ═══════════ TODAY PAGE ═══════════ -->
@@ -214,6 +219,112 @@
   <div id="histContent"></div>
 </div>
 
+<!-- ═══════════ ADVISOR PAGE ═══════════ -->
+<div id="page-advisor" class="page">
+
+  <!-- 今日剩餘摘要 -->
+  <div class="card" id="advisorSummary">
+    <div class="card-label">今日剩餘額度</div>
+    <div id="advisorRemain" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+    <button onclick="copyPrompt()" style="width:100%;padding:11px;border-radius:10px;border:1px dashed var(--blue);background:var(--blue-light);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+      📋 複製提示詞 → 貼到 Claude / Gemini
+    </button>
+    <div id="copyDone" style="display:none;text-align:center;font-size:12px;color:var(--green);margin-top:6px;">✓ 已複製！</div>
+  </div>
+
+  <!-- 詢問能不能吃 -->
+  <div class="card">
+    <div class="card-label">詢問能不能吃</div>
+    <div style="font-size:12px;color:var(--gray-400);margin-bottom:10px;">輸入食物名稱或上傳照片，AI 幫你判斷是否符合今日目標</div>
+
+    <div id="advImgPreviewArea" style="display:none;margin-bottom:10px;">
+      <div id="advImgGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
+      <button onclick="clearAdvImages()" style="font-size:11px;color:var(--gray-400);background:none;border:none;cursor:pointer;padding:0;">✕ 清除所有圖片</button>
+    </div>
+
+    <textarea id="advisorInput" placeholder="例如：珍珠奶茶一杯、麥當勞大麥克、滷肉飯...&#10;（可不填，直接上傳照片）" style="min-height:70px;"></textarea>
+    <div class="error-msg" id="advisorErr" style="display:none;"></div>
+    <div class="btn-row" style="margin-top:10px;">
+      <button class="btn-photo" onclick="document.getElementById('advFileCamera').click()" title="拍照">📷</button>
+      <button class="btn-photo" onclick="document.getElementById('advFileGallery').click()" title="相簿">🖼️</button>
+      <button id="advisorBtn" onclick="askAdvisor()" style="flex:1;padding:11px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">✦ AI 分析</button>
+    </div>
+    <input type="file" id="advFileCamera" accept="image/*" capture="environment" style="display:none" onchange="handleAdvImages(event)">
+    <input type="file" id="advFileGallery" accept="image/*" multiple style="display:none" onchange="handleAdvImages(event)">
+  </div>
+
+  <!-- AI 回覆 -->
+  <div id="advisorResult" style="display:none;">
+    <div class="card">
+      <div class="card-label">AI 建議</div>
+      <div id="advisorAnswer" style="font-size:14px;line-height:1.8;color:var(--gray-800);white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════ SETTINGS PAGE ═══════════ -->
+<div id="page-settings" class="page">
+
+  <div class="card">
+    <div class="card-label">個人資料</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">身高 (cm)</div>
+        <input type="number" id="s_height" style="width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:14px;font-weight:700;outline:none;font-family:inherit;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">體重 (kg)</div>
+        <input type="number" id="s_weight" style="width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:14px;font-weight:700;outline:none;font-family:inherit;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">年齡</div>
+        <input type="number" id="s_age" style="width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:14px;font-weight:700;outline:none;font-family:inherit;">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">體脂率 (%)</div>
+        <input type="number" id="s_bodyfat" style="width:100%;padding:9px 10px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:14px;font-weight:700;outline:none;font-family:inherit;">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">性別</div>
+      <div style="display:flex;gap:8px;">
+        <button id="s_male" onclick="selectGender('male')" class="meal-tab" style="flex:1;">♂ 男性</button>
+        <button id="s_female" onclick="selectGender('female')" class="meal-tab" style="flex:1;">♀ 女性</button>
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">活動量</div>
+      <div style="display:flex;flex-direction:column;gap:6px;" id="activityBtns">
+        <button onclick="selectActivity(1.2)"   class="meal-tab activity-btn" data-val="1.2"  style="text-align:left;padding:9px 12px;">久坐（辦公室、少運動）</button>
+        <button onclick="selectActivity(1.375)" class="meal-tab activity-btn" data-val="1.375" style="text-align:left;padding:9px 12px;">輕度（每週 1–2 次運動）</button>
+        <button onclick="selectActivity(1.55)"  class="meal-tab activity-btn" data-val="1.55"  style="text-align:left;padding:9px 12px;">中度（每週 3–4 次運動）</button>
+        <button onclick="selectActivity(1.725)" class="meal-tab activity-btn" data-val="1.725" style="text-align:left;padding:9px 12px;">高度（每天運動）</button>
+      </div>
+    </div>
+    <button onclick="calcAndSave()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">
+      💾 重新計算 & 儲存
+    </button>
+  </div>
+
+  <div class="card" id="settingsResult" style="display:none;">
+    <div class="card-label">計算結果</div>
+    <div id="settingsResultContent"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Gemini API Key</div>
+    <div style="display:flex;gap:6px;">
+      <input type="password" id="s_apiKey" placeholder="AIza..."
+        style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:13px;color:var(--gray-800);outline:none;font-family:inherit;">
+      <button onclick="toggleSettingsKey()" id="s_keyVisBtn" style="padding:9px 12px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);cursor:pointer;font-size:14px;">👁</button>
+    </div>
+    <button onclick="saveSettingsKey()" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:none;background:var(--gray-800);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">儲存 API Key</button>
+    <div id="s_keySaved" style="display:none;text-align:center;font-size:12px;color:var(--green);margin-top:6px;">✓ 已儲存</div>
+  </div>
+
+</div>
+
 <!-- ═══════════ STATS PAGE ═══════════ -->
 <div id="page-stats" class="page">
   <div class="card">
@@ -235,7 +346,13 @@
 </div>
 
 <script>
-const PROFILE = { calories: 1725, protein: 125, fat: 55, carbs: 170 };
+function getProfile() {
+  const saved = localStorage.getItem('diet_profile');
+  if (saved) { try { return JSON.parse(saved); } catch {} }
+  return { calories: 1725, protein: 125, fat: 55, carbs: 170 };
+}
+function saveProfile(p) { localStorage.setItem('diet_profile', JSON.stringify(p)); }
+const PROFILE = getProfile();
 const MEAL_LABELS = { breakfast:'早餐', lunch:'午餐', dinner:'晚餐', snack:'點心' };
 const MEAL_ICONS  = { breakfast:'🌅', lunch:'☀️', dinner:'🌙', snack:'🍎' };
 const DAYS = ['日','一','二','三','四','五','六'];
@@ -261,6 +378,8 @@ function showPage(name) {
   event.currentTarget.classList.add('active');
   if (name === 'history') renderHistory();
   if (name === 'stats') renderStats();
+  if (name === 'advisor') renderAdvisor();
+  if (name === 'settings') renderSettings();
 }
 
 // ── Rings ──
@@ -591,6 +710,221 @@ function renderStats() {
     <div class="hs-item"><div class="hs-val" style="color:#3b82f6">${Math.round(avgT.protein/n)}g</div><div class="hs-label">平均蛋白質</div></div>
     <div class="hs-item"><div class="hs-val" style="color:#f59e0b">${Math.round(avgT.fat/n)}g</div><div class="hs-label">平均脂肪</div></div>
     <div class="hs-item"><div class="hs-val" style="color:#10b981">${Math.round(avgT.carbs/n)}g</div><div class="hs-label">平均碳水</div></div>`;
+}
+
+// ── Advisor images ──
+let advImages = [];
+function handleAdvImages(e) {
+  Array.from(e.target.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      advImages.push({ base64: ev.target.result.split(',')[1], preview: ev.target.result });
+      renderAdvImagePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
+}
+function renderAdvImagePreview() {
+  const area = document.getElementById('advImgPreviewArea');
+  const grid = document.getElementById('advImgGrid');
+  if (!advImages.length) { area.style.display = 'none'; return; }
+  area.style.display = 'block';
+  grid.innerHTML = advImages.map((img, i) => `
+    <div style="position:relative;width:72px;height:72px;">
+      <img src="${img.preview}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--gray-200);">
+      <button onclick="removeAdvImage(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;padding:0;">✕</button>
+    </div>`).join('');
+}
+function removeAdvImage(i) { advImages.splice(i,1); renderAdvImagePreview(); }
+function clearAdvImages() { advImages=[]; renderAdvImagePreview(); document.getElementById('advFileCamera').value=''; document.getElementById('advFileGallery').value=''; }
+
+// ── Settings ──
+let selectedGender = 'male';
+let selectedActivity = 1.375;
+
+function selectGender(g) {
+  selectedGender = g;
+  document.getElementById('s_male').classList.toggle('active', g==='male');
+  document.getElementById('s_female').classList.toggle('active', g==='female');
+}
+function selectActivity(v) {
+  selectedActivity = v;
+  document.querySelectorAll('.activity-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.val) === v);
+  });
+}
+function calcAndSave() {
+  const h = parseFloat(document.getElementById('s_height').value);
+  const w = parseFloat(document.getElementById('s_weight').value);
+  const age = parseFloat(document.getElementById('s_age').value);
+  const bf = parseFloat(document.getElementById('s_bodyfat').value);
+  if (!h||!w||!age||isNaN(bf)) { alert('請填寫所有欄位'); return; }
+
+  // Mifflin-St Jeor BMR
+  const bmr = selectedGender === 'male'
+    ? 10*w + 6.25*h - 5*age + 5
+    : 10*w + 6.25*h - 5*age - 161;
+  const tdee = Math.round(bmr * selectedActivity);
+  const target = Math.round(tdee - 500);
+  const leanMass = w * (1 - bf/100);
+  const protein = Math.round(leanMass * 2.5);
+  const fat = Math.round(target * 0.28 / 9);
+  const carbs = Math.round((target - protein*4 - fat*9) / 4);
+
+  const p = { calories: target, protein, fat, carbs, height:h, weight:w, age, bodyfat:bf, gender:selectedGender, activity:selectedActivity };
+  saveProfile(p);
+  // Update live PROFILE
+  PROFILE.calories = target; PROFILE.protein = protein; PROFILE.fat = fat; PROFILE.carbs = carbs;
+
+  document.getElementById('settingsResult').style.display = 'block';
+  document.getElementById('settingsResultContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="hs-item"><div class="hs-val" style="color:var(--blue)">${target}</div><div class="hs-label">每日熱量 kcal</div></div>
+      <div class="hs-item"><div class="hs-val" style="color:#3b82f6">${protein}g</div><div class="hs-label">蛋白質目標</div></div>
+      <div class="hs-item"><div class="hs-val" style="color:#f59e0b">${fat}g</div><div class="hs-label">脂肪目標</div></div>
+      <div class="hs-item"><div class="hs-val" style="color:#10b981">${carbs}g</div><div class="hs-label">碳水目標</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--gray-400);margin-top:10px;">BMR ${Math.round(bmr)} × ${selectedActivity} = TDEE ${tdee} kcal，減去 500 = 每日目標 ${target} kcal</div>
+  `;
+  alert('✅ 設定已儲存！');
+}
+function toggleSettingsKey() {
+  const inp = document.getElementById('s_apiKey');
+  const btn = document.getElementById('s_keyVisBtn');
+  inp.type = inp.type==='password' ? 'text' : 'password';
+  btn.textContent = inp.type==='password' ? '👁' : '🙈';
+}
+function saveSettingsKey() {
+  const k = document.getElementById('s_apiKey').value.trim();
+  if (!k) return;
+  saveApiKey(k);
+  document.getElementById('apiKeyInput').value = k;
+  const done = document.getElementById('s_keySaved');
+  done.style.display='block'; setTimeout(()=>done.style.display='none',2000);
+}
+function renderSettings() {
+  const p = getProfile();
+  document.getElementById('s_height').value = p.height||162;
+  document.getElementById('s_weight').value = p.weight||70;
+  document.getElementById('s_age').value = p.age||22;
+  document.getElementById('s_bodyfat').value = p.bodyfat||30;
+  selectGender(p.gender||'male');
+  selectActivity(p.activity||1.375);
+  const k = loadApiKey();
+  if (k) document.getElementById('s_apiKey').value = k;
+}
+
+// ── Advisor ──
+function renderAdvisor() {
+  const meals = loadDay(todayKey());
+  const T = meals.reduce((a,m) => ({
+    calories: a.calories+m.calories, protein: a.protein+m.protein,
+    fat: a.fat+m.fat, carbs: a.carbs+m.carbs
+  }), {calories:0, protein:0, fat:0, carbs:0});
+
+  const remCal  = Math.max(PROFILE.calories - T.calories, 0);
+  const remProt = Math.max(PROFILE.protein - Math.round(T.protein), 0);
+  const remFat  = Math.max(PROFILE.fat - Math.round(T.fat), 0);
+  const remCarb = Math.max(PROFILE.carbs - Math.round(T.carbs), 0);
+
+  document.getElementById('advisorRemain').innerHTML = `
+    <div class="remain-chip"><div class="rc-val" style="color:var(--blue)">${remCal}</div><div class="rc-label">剩餘 kcal</div></div>
+    <div class="remain-chip"><div class="rc-val" style="color:#3b82f6">${remProt}g</div><div class="rc-label">蛋白質</div></div>
+    <div class="remain-chip"><div class="rc-val" style="color:#f59e0b">${remFat}g</div><div class="rc-label">脂肪</div></div>
+    <div class="remain-chip"><div class="rc-val" style="color:#10b981">${remCarb}g</div><div class="rc-label">碳水</div></div>
+  `;
+
+  // Store for prompt
+  window._advisorData = { T, remCal, remProt, remFat, remCarb, meals };
+}
+
+function buildPrompt() {
+  const d = window._advisorData;
+  if (!d) return '';
+  const P = getProfile();
+  const mealList = d.meals.map(m => `・${MEAL_LABELS[m.mealType]} ${m.foodName}（${m.calories}kcal，蛋白${m.protein}g，脂${m.fat}g，碳水${m.carbs}g）`).join('\n');
+  return `我今天的減脂目標：熱量 ${P.calories} kcal、蛋白質 ${P.protein}g、脂肪 ${P.fat}g、碳水 ${P.carbs}g\n\n今天已吃：\n${mealList || '（尚未記錄）'}\n\n已攝取：熱量 ${d.T.calories} kcal、蛋白質 ${Math.round(d.T.protein)}g、脂肪 ${Math.round(d.T.fat)}g、碳水 ${Math.round(d.T.carbs)}g\n剩餘：熱量 ${d.remCal} kcal、蛋白質 ${d.remProt}g、脂肪 ${d.remFat}g、碳水 ${d.remCarb}g\n\n請根據以上剩餘額度，建議我今天還可以吃什麼？`;
+}
+
+async function copyPrompt() {
+  const prompt = buildPrompt();
+  try {
+    await navigator.clipboard.writeText(prompt);
+  } catch {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = prompt; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  const done = document.getElementById('copyDone');
+  done.style.display = 'block';
+  setTimeout(() => done.style.display = 'none', 2000);
+}
+
+async function askAdvisor() {
+  const food = document.getElementById('advisorInput').value.trim();
+  if (!food && !advImages.length) return;
+  const apiKey = loadApiKey();
+  if (!apiKey) {
+    const err = document.getElementById('advisorErr');
+    err.textContent = '請先在今日頁面輸入 API Key'; err.style.display = 'block'; return;
+  }
+
+  const btn = document.getElementById('advisorBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner">⟳</span> 分析中...';
+  document.getElementById('advisorErr').style.display = 'none';
+  document.getElementById('advisorResult').style.display = 'none';
+
+  const d = window._advisorData || {};
+  const P = getProfile();
+  const promptText = `我的今日減脂目標：熱量 ${P.calories} kcal、蛋白質 ${P.protein}g、脂肪 ${P.fat}g、碳水 ${P.carbs}g。
+今日已攝取：熱量 ${d.T?.calories||0} kcal、蛋白質 ${Math.round(d.T?.protein||0)}g、脂肪 ${Math.round(d.T?.fat||0)}g、碳水 ${Math.round(d.T?.carbs||0)}g。
+剩餘額度：熱量 ${d.remCal||P.calories} kcal、蛋白質 ${d.remProt||P.protein}g、脂肪 ${d.remFat||P.fat}g、碳水 ${d.remCarb||P.carbs}g。
+${food ? `我想吃：${food}` : ''}
+${advImages.length ? `（附上${advImages.length}張食物照片，請辨識並分析）` : ''}
+請：
+1. ${advImages.length||food ? '判斷這個食物的大概熱量與營養素' : '根據剩餘額度建議我可以吃什麼'}
+2. 分析是否符合今日剩餘額度
+3. 如果不符合，建議我可以吃多少份量
+4. 給我一個簡短明確的結論（可以吃 ✅ / 小心份量 ⚠️ / 建議不吃 ❌）
+請用繁體中文回答，簡潔清晰。`;
+
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const listData = await listRes.json();
+    if (listData.error) throw new Error(listData.error.message);
+    const allModels = (listData.models||[]).filter(m=>m.supportedGenerationMethods?.includes('generateContent')).map(m=>m.name.replace('models/',''));
+    const preferred = ['gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-flash-latest','gemini-1.5-flash'];
+    const models = [...preferred.filter(p=>allModels.includes(p)), ...allModels.filter(m=>!preferred.includes(m)&&m.includes('flash'))];
+
+    const parts = [];
+    advImages.forEach(img => parts.push({ inline_data: { mime_type:'image/jpeg', data:img.base64 } }));
+    parts.push({ text: promptText });
+
+    let data = null, lastErr = '';
+    for (const model of models) {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ contents:[{ parts }] })
+        });
+        data = await res.json();
+        if (!data.error) break;
+        lastErr = data.error.message;
+      } catch(e) { lastErr = e.message; }
+    }
+    if (!data || data.error) throw new Error(lastErr);
+    const answer = data.candidates[0].content.parts[0].text;
+    document.getElementById('advisorAnswer').textContent = answer;
+    document.getElementById('advisorResult').style.display = 'block';
+    clearAdvImages();
+  } catch(e) {
+    const err = document.getElementById('advisorErr');
+    err.textContent = '分析失敗：' + e.message; err.style.display = 'block';
+  }
+  btn.disabled = false; btn.innerHTML = '✦ AI 分析';
 }
 
 // ── Init ──
