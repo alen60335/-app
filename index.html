@@ -180,9 +180,9 @@
       <button class="meal-tab" data-meal="dinner" onclick="selectMeal(this)">🌙<br>晚餐</button>
       <button class="meal-tab" data-meal="snack" onclick="selectMeal(this)">🍎<br>點心</button>
     </div>
-    <div class="img-preview" id="imgPreview" style="display:none">
-      <img id="imgThumb" src="" alt="">
-      <button class="img-remove" onclick="removeImage()">✕</button>
+    <div id="imgPreviewArea" style="display:none;margin-bottom:10px;">
+      <div id="imgGrid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
+      <button onclick="clearImages()" style="font-size:11px;color:var(--gray-400);background:none;border:none;cursor:pointer;padding:0;">✕ 清除所有圖片</button>
     </div>
     <textarea id="foodInput" placeholder="輸入食物，例如：雞胸肉150g、白飯一碗、燙青菜..."></textarea>
     <div class="error-msg" id="errMsg" style="display:none"></div>
@@ -191,8 +191,8 @@
       <button class="btn-photo" onclick="document.getElementById('fileGallery').click()" title="相簿">🖼️</button>
       <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">✦ AI 分析</button>
     </div>
-    <input type="file" id="fileCamera"  accept="image/*" capture="environment" style="display:none" onchange="handleImage(event)">
-    <input type="file" id="fileGallery" accept="image/*" style="display:none" onchange="handleImage(event)">
+    <input type="file" id="fileCamera"  accept="image/*" capture="environment" style="display:none" onchange="handleImages(event)">
+    <input type="file" id="fileGallery" accept="image/*" multiple style="display:none" onchange="handleImages(event)">
   </div>
 
   <!-- Records -->
@@ -241,7 +241,7 @@ const MEAL_ICONS  = { breakfast:'🌅', lunch:'☀️', dinner:'🌙', snack:'�
 const DAYS = ['日','一','二','三','四','五','六'];
 
 let currentMeal = 'breakfast';
-let imageBase64 = null;
+let images = []; // [{base64, preview}]
 let historyOffset = 0; // 0 = today, -1 = yesterday...
 
 // ── Storage helpers ──
@@ -356,20 +356,38 @@ function selectMeal(el) {
 }
 
 // ── Image ──
-function handleImage(e) {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    imageBase64 = ev.target.result.split(',')[1];
-    document.getElementById('imgThumb').src = ev.target.result;
-    document.getElementById('imgPreview').style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+function handleImages(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      images.push({ base64: ev.target.result.split(',')[1], preview: ev.target.result });
+      renderImagePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = '';
 }
-function removeImage() {
-  imageBase64 = null;
-  document.getElementById('imgPreview').style.display = 'none';
-  document.getElementById('imgThumb').src = '';
+function renderImagePreview() {
+  const area = document.getElementById('imgPreviewArea');
+  const grid = document.getElementById('imgGrid');
+  if (!images.length) { area.style.display = 'none'; return; }
+  area.style.display = 'block';
+  grid.innerHTML = images.map((img, i) => `
+    <div style="position:relative;width:72px;height:72px;">
+      <img src="${img.preview}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--gray-200);">
+      <button onclick="removeOneImage(${i})" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;padding:0;">✕</button>
+    </div>
+  `).join('');
+}
+function removeOneImage(i) {
+  images.splice(i, 1);
+  renderImagePreview();
+}
+function clearImages() {
+  images = [];
+  renderImagePreview();
   document.getElementById('fileCamera').value = '';
   document.getElementById('fileGallery').value = '';
 }
@@ -383,9 +401,8 @@ document.addEventListener('paste', function(e) {
       const file = items[i].getAsFile();
       const reader = new FileReader();
       reader.onload = ev => {
-        imageBase64 = ev.target.result.split(',')[1];
-        document.getElementById('imgThumb').src = ev.target.result;
-        document.getElementById('imgPreview').style.display = 'block';
+        images.push({ base64: ev.target.result.split(',')[1], preview: ev.target.result });
+        renderImagePreview();
       };
       reader.readAsDataURL(file);
       break;
@@ -406,7 +423,7 @@ function toggleKeyVis() {
 // ── Analyze with Gemini ──
 async function analyze() {
   const text = document.getElementById('foodInput').value.trim();
-  if (!text && !imageBase64) return;
+  if (!text && !images.length) return;
 
   const apiKey = loadApiKey();
   if (!apiKey) {
@@ -420,14 +437,14 @@ async function analyze() {
   document.getElementById('errMsg').style.display = 'none';
 
   try {
-    const prompt = `分析以下飲食的熱量與營養素。${text ? `食物：${text}` : '根據圖片辨識食物。'}
+    const prompt = `分析以下飲食的熱量與營養素。${text ? `食物：${text}` : ''}${images.length > 1 ? `（共${images.length}張圖片，請辨識所有圖片中的食物並加總）` : images.length === 1 ? '根據圖片辨識食物。' : ''}
 回傳純JSON（不含markdown，不含任何說明文字）：{"foodName":"名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"一句話說明"}
 單位：calories=kcal，其餘=克，多樣食物請加總。`;
 
     const parts = [];
-    if (imageBase64) {
-      parts.push({ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } });
-    }
+    images.forEach(img => {
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: img.base64 } });
+    });
     parts.push({ text: prompt });
 
     // 依序嘗試可用模型
@@ -484,7 +501,7 @@ async function analyze() {
     meals.push({ ...parsed, mealType:currentMeal, id:Date.now() });
     saveDay(key, meals);
     document.getElementById('foodInput').value = '';
-    removeImage();
+    clearImages();
     renderToday();
   } catch(e) {
     const err = document.getElementById('errMsg');
@@ -579,6 +596,7 @@ function renderStats() {
 // ── Init ──
 const savedKey = loadApiKey();
 if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
+renderImagePreview();
 drawRing('ringP',0,PROFILE.protein,'#3b82f6');
 drawRing('ringF',0,PROFILE.fat,'#f59e0b');
 drawRing('ringC',0,PROFILE.carbs,'#10b981');
