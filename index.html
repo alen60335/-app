@@ -161,6 +161,19 @@
   <!-- Input -->
   <div class="card">
     <div class="card-label">新增飲食</div>
+
+    <!-- API Key -->
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:6px;">Gemini API Key <span style="color:var(--gray-300);font-weight:400;">（僅存於本機）</span></div>
+      <div style="display:flex;gap:6px;">
+        <input type="password" id="apiKeyInput" placeholder="貼上你的 Gemini API Key..."
+          style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:13px;color:var(--gray-800);outline:none;font-family:inherit;"
+          oninput="saveApiKey(this.value)">
+        <button onclick="toggleKeyVis()" id="keyVisBtn" style="padding:9px 12px;border-radius:10px;border:1px solid var(--gray-200);background:var(--gray-50);cursor:pointer;font-size:14px;">👁</button>
+      </div>
+      <div style="font-size:10px;color:var(--gray-300);margin-top:4px;">還沒有 Key？<a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--blue);">免費申請 →</a></div>
+    </div>
+
     <div class="meal-tabs">
       <button class="meal-tab active" data-meal="breakfast" onclick="selectMeal(this)">🌅<br>早餐</button>
       <button class="meal-tab" data-meal="lunch" onclick="selectMeal(this)">☀️<br>午餐</button>
@@ -380,26 +393,54 @@ document.addEventListener('paste', function(e) {
   }
 });
 
-// ── Analyze ──
+// ── API Key helpers ──
+function saveApiKey(val) { localStorage.setItem('gemini_api_key', val); }
+function loadApiKey() { return localStorage.getItem('gemini_api_key') || ''; }
+function toggleKeyVis() {
+  const inp = document.getElementById('apiKeyInput');
+  const btn = document.getElementById('keyVisBtn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+// ── Analyze with Gemini ──
 async function analyze() {
   const text = document.getElementById('foodInput').value.trim();
   if (!text && !imageBase64) return;
+
+  const apiKey = loadApiKey();
+  if (!apiKey) {
+    const err = document.getElementById('errMsg');
+    err.textContent = '請先輸入 Gemini API Key'; err.style.display = 'block';
+    return;
+  }
+
   const btn = document.getElementById('analyzeBtn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner">⟳</span> 分析中...';
   document.getElementById('errMsg').style.display = 'none';
-  try {
-    const userContent = [];
-    if (imageBase64) userContent.push({ type:'image', source:{ type:'base64', media_type:'image/jpeg', data:imageBase64 } });
-    userContent.push({ type:'text', text:`分析以下飲食的熱量與營養素。${text?`食物：${text}`:'根據圖片辨識食物。'}
-回傳純JSON（不含markdown）：{"foodName":"名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"一句話說明"}
-單位：calories=kcal，其餘=克，多樣食物請加總。` });
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{role:'user',content:userContent}] })
-    });
+  try {
+    const prompt = `分析以下飲食的熱量與營養素。${text ? `食物：${text}` : '根據圖片辨識食物。'}
+回傳純JSON（不含markdown，不含任何說明文字）：{"foodName":"名稱","calories":數字,"protein":數字,"fat":數字,"carbs":數字,"note":"一句話說明"}
+單位：calories=kcal，其餘=克，多樣食物請加總。`;
+
+    const parts = [];
+    if (imageBase64) {
+      parts.push({ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } });
+    }
+    parts.push({ text: prompt });
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts }] })
+      }
+    );
     const data = await res.json();
-    const raw = data.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim();
+    if (data.error) throw new Error(data.error.message);
+    const raw = data.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim();
     const parsed = JSON.parse(raw);
     const key = todayKey();
     const meals = loadDay(key);
@@ -410,7 +451,8 @@ async function analyze() {
     renderToday();
   } catch(e) {
     const err = document.getElementById('errMsg');
-    err.textContent = '分析失敗，請重試'; err.style.display = 'block';
+    err.textContent = '分析失敗：' + (e.message || '請確認 API Key 是否正確');
+    err.style.display = 'block';
   }
   btn.disabled = false; btn.innerHTML = '✦ AI 分析';
 }
@@ -498,6 +540,8 @@ function renderStats() {
 }
 
 // ── Init ──
+const savedKey = loadApiKey();
+if (savedKey) document.getElementById('apiKeyInput').value = savedKey;
 drawRing('ringP',0,PROFILE.protein,'#3b82f6');
 drawRing('ringF',0,PROFILE.fat,'#f59e0b');
 drawRing('ringC',0,PROFILE.carbs,'#10b981');
